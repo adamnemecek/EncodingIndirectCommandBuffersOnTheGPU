@@ -25,8 +25,6 @@ typedef enum AAPLMovementDirection {
     AAPLMovementDirectionDown,
 } AAPLMovementDirection;
 
-
-
 // Main class performing the rendering
 @implementation AAPLRenderer
 {
@@ -85,7 +83,6 @@ typedef struct AAPLObjectMesh {
     if(self)
     {
         mtkView.clearColor = MTLClearColorMake(0.0, 0.0, 0.5, 1.0f);
-        mtkView.colorPixelFormat = MTLPixelFormatBGRA8Unorm_sRGB;
 
         _device = mtkView.device;
 
@@ -209,7 +206,7 @@ typedef struct AAPLObjectMesh {
         }
 
         free(tempMeshes);
-        
+
         for(int i = 0; i < AAPLMaxBuffersInFlight; i++)
         {
             _frameStateBuffer[i] = [_device newBufferWithLength:sizeof(AAPLFrameState)
@@ -220,7 +217,8 @@ typedef struct AAPLObjectMesh {
 
         MTLIndirectCommandBufferDescriptor* icbDescriptor = [MTLIndirectCommandBufferDescriptor new];
 
-        // Indicate that the only draw commands will be standard (non-indexed) draw commands.
+        
+        // Only standard (non-indexed) draw commands are allowed.
         icbDescriptor.commandTypes = MTLIndirectCommandTypeDraw;
 
         // Indicate that buffers will be set for each command in the indirect command buffer.
@@ -229,6 +227,13 @@ typedef struct AAPLObjectMesh {
         // Indicate that a maximum of 3 buffers will be set for each command.
         icbDescriptor.maxVertexBufferBindCount = 3;
         icbDescriptor.maxFragmentBufferBindCount = 0;
+
+#ifdef TARGET_MACOS
+        // Indicate that the render pipeline state object will be set in the render command encoder
+        // (not by the indirect command buffer).
+        // Only macOS devices support pipeline inheritance with ICBs and have this property.
+        icbDescriptor.inheritPipelineState = YES;
+#endif
 
         _indirectCommandBuffer = [_device newIndirectCommandBufferWithDescriptor:icbDescriptor
                                                                  maxCommandCount:AAPLNumObjects
@@ -394,6 +399,7 @@ typedef struct AAPLObjectMesh {
     frameState->aspectScale = _aspectScale;
 
     const vector_float2 viewOffset = (AAPLObjecDistance / 2.0) * (gridDimensions-1);
+
     // Calculate the position of the center of the lower-left object
     frameState->translation = _gridCenter - viewOffset;
 }
@@ -412,12 +418,11 @@ typedef struct AAPLObjectMesh {
 - (void) drawInMTKView:(nonnull MTKView *)view
 {
     // Wait to ensure only AAPLMaxBuffersInFlight are getting processed by any stage in the Metal
-    //   pipeline (App, Metal, Drivers, GPU, etc)
+    // pipeline (App, Metal, Drivers, GPU, etc)
     dispatch_semaphore_wait(_inFlightSemaphore, DISPATCH_TIME_FOREVER);
 
     [self updateState];
 
-    // Create a new command buffer for each render pass to the current drawable
     id <MTLCommandBuffer> commandBuffer = [_commandQueue commandBuffer];
     commandBuffer.label = @"Frame Command Buffer";
 
@@ -433,7 +438,6 @@ typedef struct AAPLObjectMesh {
 
     /// Encode blit commands to update the buffer holding our frame state
     id<MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
-
 
     [computeEncoder setComputePipelineState:_computePipelineState];
 
@@ -463,14 +467,12 @@ typedef struct AAPLObjectMesh {
 
     [blitEncoder endEncoding];
 
-    // Obtain a renderPassDescriptor generated from the view's drawable textures
     MTLRenderPassDescriptor *renderPassDescriptor = view.currentRenderPassDescriptor;
 
     // If we've gotten a renderPassDescriptor we can render to the drawable, otherwise we'll skip
-    //   any rendering this frame because we have no drawable to draw to
+    // any rendering this frame because we have no drawable to draw to
     if(renderPassDescriptor != nil)
     {
-        // Create a render command encoder so we can render into something
         id <MTLRenderCommandEncoder> renderEncoder =
             [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
         renderEncoder.label = @"Main Render Encoder";
@@ -489,11 +491,17 @@ typedef struct AAPLObjectMesh {
         // Draw everything in the indirect command buffer
         [renderEncoder executeCommandsInBuffer:_indirectCommandBuffer withRange:NSMakeRange(0, AAPLNumObjects)];
 
-        // We're done encoding commands
         [renderEncoder endEncoding];
 
-        // Schedule a present once the framebuffer is complete using the current drawable
+#if TARGET_IOS
+        // Present drawable to screen only after previous drawable has been on screen for a
+        // mimimum of 16ms to achieve a smooth framerate of 60 FPS.  This prevents jittering on
+        // devices with ProMotion displays that support a variable refresh rate from 120 to 30 FPS.
+        [commandBuffer presentDrawable:view.currentDrawable
+                  afterMinimumDuration:0.02];
+#else
         [commandBuffer presentDrawable:view.currentDrawable];
+#endif
     }
 
     // Finalize rendering here & push the command buffer to the GPU

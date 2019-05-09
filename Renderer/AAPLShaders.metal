@@ -20,7 +20,7 @@ typedef struct ICBContainer
 } ICBContainer;
 
 // Check whether the object at 'objectIndex' is visible and set draw parameters if so.
-//  Otherwise, reset the command so that nothing is done.
+// Otherwise, reset the command so that nothing is done.
 kernel void
 cullMeshesAndEncodeCommands(uint                          objectIndex   [[ thread_position_in_grid ]],
                             constant AAPLFrameState      *frame_state   [[ buffer(AAPLKernelBufferIndexFrameState) ]],
@@ -38,7 +38,7 @@ cullMeshesAndEncodeCommands(uint                          objectIndex   [[ threa
 
     bool visible = true;
 
-    // Set the bounding radius in view space.
+    // Set the bounding radius in the view space.
     const float2 boundingRadius = frame_state->aspectScale * AAPLViewScale * object_params[objectIndex].boundingRadius;
 
     // Check if the object's bounding circle has moved outside of the view bounds.
@@ -49,13 +49,13 @@ cullMeshesAndEncodeCommands(uint                          objectIndex   [[ threa
     {
         visible = false;
     }
-    
-    // Get an indirect render commnd object from the ICB given the object's unique index.
+    // Get indirect render commnd object from the indirect command buffer given the object's unique
+    // index to set parameters for drawing (or not drawing) the object.
     render_command cmd(icb_container->commandBuffer, objectIndex);
 
     if(visible)
     {
-        // Set the buffers and add draw command.
+        // Set the buffers and add a draw command.
         cmd.set_vertex_buffer(frame_state, AAPLVertexBufferIndexFrameState);
         cmd.set_vertex_buffer(object_params, AAPLVertexBufferIndexObjectParams);
         cmd.set_vertex_buffer(vertices, AAPLVertexBufferIndexVertices);
@@ -72,7 +72,7 @@ cullMeshesAndEncodeCommands(uint                          objectIndex   [[ threa
     }
 }
 
-// Vertex shader outputs and per-fragment inputs
+// Vertex shader outputs and per-fragment inputs.
 typedef struct
 {
     float4 position [[position]];
@@ -80,11 +80,11 @@ typedef struct
 } RasterizerData;
 
 vertex RasterizerData
-vertexShader(uint                         vertexID      [[ vertex_id ]],
-             uint                         objectIndex   [[ instance_id ]],
-             device AAPLVertex           *vertices      [[ buffer(AAPLVertexBufferIndexVertices) ]],
-             device AAPLObjectPerameters *object_params [[ buffer(AAPLVertexBufferIndexObjectParams) ]],
-             constant AAPLFrameState     *frame_state   [[ buffer(AAPLVertexBufferIndexFrameState) ]])
+vertexShader(uint                     vertexID      [[ vertex_id ]],
+             uint                     objectIndex   [[ instance_id ]],
+             const device AAPLVertex* vertices      [[ buffer(AAPLVertexBufferIndexVertices) ]],
+             const device AAPLObjectPerameters* object_params [[ buffer(AAPLVertexBufferIndexObjectParams) ]],
+             constant AAPLFrameState* frame_state   [[ buffer(AAPLVertexBufferIndexFrameState) ]])
 {
     RasterizerData out;
 

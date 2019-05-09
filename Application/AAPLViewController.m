@@ -28,19 +28,20 @@ Implementation of our cross-platform view controller
         NSLog(@"Metal is not supported on this device");
         return;
     }
-
-    BOOL supportICB = NO;
+    
+    BOOL sampleSupported = NO;
 #if TARGET_IOS
-    supportICB = [_view.device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v4];
+    sampleSupported = [_view.device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily4_v2];
 #else
-    supportICB = [_view.device supportsFeatureSet:MTLFeatureSet_macOS_GPUFamily2_v1];
+    sampleSupported = [_view.device supportsFeatureSet:MTLFeatureSet_macOS_GPUFamily2_v1];
 #endif
-    if (!supportICB)
+    if (!sampleSupported)
     {
-        NSLog(@"Indirect Command Buffer is not supported on this GPU family or OS version");
+        NSLog(@"Sample requires iOS_GPUFamily4_v2 or macOS_GPUFamily2_v1 device, or later");
+        assert(!"Sample requires iOS_GPUFamily4_v2 or macOS_GPUFamily2_v1 device, or later\n");
         return;
     }
-    
+
     _renderer = [[AAPLRenderer alloc] initWithMetalKitView:_view];
 
     if(!_renderer)
