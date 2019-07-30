@@ -26,6 +26,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1D7FA2D01D7F9F1000000001 /* LICENSE.txt */ = {isa = PBXFileReference; includeInIndex = 1; path = LICENSE.txt; sourceTree = "<group>"; };
+		1E0264401E0230C000000001 /* SampleCode.xcconfig */ = {isa = PBXFileReference; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		632C07B420B34A4600F87C9B /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		632C07B920B34A4600F87C9B /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		632C07BB20B34A4600F87C9B /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
@@ -45,8 +47,6 @@
 		728A648520A50BB200693E0A /* AAPLRenderer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AAPLRenderer.m; sourceTree = "<group>"; };
 		728A648620A50BB200693E0A /* AAPLShaderTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AAPLShaderTypes.h; sourceTree = "<group>"; };
 		728A648720A50BB200693E0A /* AAPLShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = AAPLShaders.metal; sourceTree = "<group>"; };
-		D241D4F0D242052000000001 /* SampleCode.xcconfig */ = {isa = PBXFileReference; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
-		D2542980D25445E000000001 /* LICENSE.txt */ = {isa = PBXFileReference; includeInIndex = 1; path = LICENSE.txt; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -69,6 +69,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1D7F86B01D7F813000000001 /* LICENSE */ = {
+			isa = PBXGroup;
+			children = (
+				1D7FA2D01D7F9F1000000001 /* LICENSE.txt */,
+			);
+			name = LICENSE;
+			path = LICENSE;
+			sourceTree = "<group>";
+		};
+		1E042D501E044E5000000001 /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				1E0264401E0230C000000001 /* SampleCode.xcconfig */,
+			);
+			name = Configuration;
+			sourceTree = "<group>";
+		};
 		632C07AE20B34A4600F87C9B /* Application */ = {
 			isa = PBXGroup;
 			children = (
@@ -110,8 +127,8 @@
 				632C07AE20B34A4600F87C9B /* Application */,
 				728A648F20A50BB200693E0A /* Products */,
 				728A64AA20A532BD00693E0A /* Frameworks */,
-				D2420B70D243799000000001 /* Configuration */,
-				D2544530D25514C000000001 /* LICENSE */,
+				1E042D501E044E5000000001 /* Configuration */,
+				1D7F86B01D7F813000000001 /* LICENSE */,
 			);
 			sourceTree = "<group>";
 		};
@@ -142,23 +159,6 @@
 				725DFF7722186631006DDB94 /* MetalKit.framework */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		D2420B70D243799000000001 /* Configuration */ = {
-			isa = PBXGroup;
-			children = (
-				D241D4F0D242052000000001 /* SampleCode.xcconfig */,
-			);
-			name = Configuration;
-			sourceTree = "<group>";
-		};
-		D2544530D25514C000000001 /* LICENSE */ = {
-			isa = PBXGroup;
-			children = (
-				D2542980D25445E000000001 /* LICENSE.txt */,
-			);
-			name = LICENSE;
-			path = LICENSE;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -306,7 +306,7 @@
 /* Begin XCBuildConfiguration section */
 		720AC48320B8EC1900098002 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = D241D4F0D242052000000001 /* SampleCode.xcconfig */;
+			baseConfigurationReference = 1E0264401E0230C000000001 /* SampleCode.xcconfig */;
 			buildSettings = {
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
@@ -334,7 +334,7 @@
 		};
 		720AC48420B8EC1900098002 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = D241D4F0D242052000000001 /* SampleCode.xcconfig */;
+			baseConfigurationReference = 1E0264401E0230C000000001 /* SampleCode.xcconfig */;
 			buildSettings = {
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
@@ -358,7 +358,7 @@
 		};
 		720AC4AB20B8FE2A00098002 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = D241D4F0D242052000000001 /* SampleCode.xcconfig */;
+			baseConfigurationReference = 1E0264401E0230C000000001 /* SampleCode.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
@@ -388,7 +388,7 @@
 		};
 		720AC4AC20B8FE2A00098002 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = D241D4F0D242052000000001 /* SampleCode.xcconfig */;
+			baseConfigurationReference = 1E0264401E0230C000000001 /* SampleCode.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
@@ -418,7 +418,7 @@
 		};
 		728A64A520A50BB200693E0A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = D241D4F0D242052000000001 /* SampleCode.xcconfig */;
+			baseConfigurationReference = 1E0264401E0230C000000001 /* SampleCode.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -476,7 +476,7 @@
 		};
 		728A64A620A50BB200693E0A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = D241D4F0D242052000000001 /* SampleCode.xcconfig */;
+			baseConfigurationReference = 1E0264401E0230C000000001 /* SampleCode.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

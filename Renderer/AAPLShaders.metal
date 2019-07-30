@@ -65,11 +65,9 @@ cullMeshesAndEncodeCommands(uint                          objectIndex   [[ threa
                             object_params[objectIndex].numVertices, 1,
                             objectIndex);
     }
-    else
-    {
-        // Generate an empty command so that the GPU doesn't draw this object.
-        cmd.reset();
-    }
+    
+    // If the object is not visible, no draw command will be set since so long as the app has reset
+    // the indirect command buffer commands with a blit encoder before encoding the draw.
 }
 
 // Vertex shader outputs and per-fragment inputs.

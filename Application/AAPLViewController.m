@@ -23,34 +23,21 @@ Implementation of our cross-platform view controller
     _view = (MTKView *)self.view;
     _view.device = MTLCreateSystemDefaultDevice();
 
-    if(!_view.device)
-    {
-        NSLog(@"Metal is not supported on this device");
-        return;
-    }
-    
+    NSAssert(_view.device, @"Metal is not supported on this device");
+
     BOOL sampleSupported = NO;
 #if TARGET_IOS
     sampleSupported = [_view.device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily4_v2];
 #else
     sampleSupported = [_view.device supportsFeatureSet:MTLFeatureSet_macOS_GPUFamily2_v1];
 #endif
-    if (!sampleSupported)
-    {
-        NSLog(@"Sample requires iOS_GPUFamily4_v2 or macOS_GPUFamily2_v1 device, or later");
-        assert(!"Sample requires iOS_GPUFamily4_v2 or macOS_GPUFamily2_v1 device, or later\n");
-        return;
-    }
+
+    NSAssert(sampleSupported, @"Sample requires macOS_GPUFamily2_v1 or iOS_GPUFamily3_v4 for Indirect Command Buffers");
 
     _renderer = [[AAPLRenderer alloc] initWithMetalKitView:_view];
 
-    if(!_renderer)
-    {
-        NSLog(@"Renderer failed initialization");
-        return;
-    }
+    NSAssert(_renderer, @"Renderer failed initialization");
 
-    // Initialize our renderer with the view size
     [_renderer mtkView:_view drawableSizeWillChange:_view.drawableSize];
 
     _view.delegate = _renderer;

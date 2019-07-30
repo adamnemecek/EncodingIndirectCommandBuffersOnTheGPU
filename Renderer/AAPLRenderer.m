@@ -12,11 +12,10 @@ Implementation of renderer class which performs Metal setup and per frame render
 // Include header shared between C code here, which executes Metal API commands, and .metal files
 #import "AAPLShaderTypes.h"
 
-#define USE_HEAP 0
 #define MOVE_GRID 1
 
-// The max number of command buffers in flight
-static const NSUInteger AAPLMaxBuffersInFlight = 3;
+// The max number of frames in flight
+static const NSUInteger AAPLMaxFramesInFlight = 3;
 
 typedef enum AAPLMovementDirection {
     AAPLMovementDirectionRight,
@@ -42,7 +41,7 @@ typedef enum AAPLMovementDirection {
     id<MTLBuffer> _objectParameters;
 
     // The Metal buffers storing per frame uniform data
-    id<MTLBuffer> _frameStateBuffer[AAPLMaxBuffersInFlight];
+    id<MTLBuffer> _frameStateBuffer[AAPLMaxFramesInFlight];
 
     // Render pipeline executinng indirect command buffer
     id<MTLRenderPipelineState> _renderPipelineState;
@@ -82,6 +81,8 @@ typedef struct AAPLObjectMesh {
     self = [super init];
     if(self)
     {
+        NSError *error;
+
         mtkView.clearColor = MTLClearColorMake(0.0, 0.0, 0.5, 1.0f);
 
         _device = mtkView.device;
@@ -91,18 +92,14 @@ typedef struct AAPLObjectMesh {
         _movementSpeed   = 0.15;
         _objectDirection = AAPLMovementDirectionUp;
 
-        _inFlightSemaphore = dispatch_semaphore_create(AAPLMaxBuffersInFlight);
+        _inFlightSemaphore = dispatch_semaphore_create(AAPLMaxFramesInFlight);
 
         // Create the command queue
         _commandQueue = [_device newCommandQueue];
 
-        // Load all the shader files with a metal file extension in the project
+        // Load the shaders from default library
         id <MTLLibrary> defaultLibrary = [_device newDefaultLibrary];
-
-        // Load the vertex function into the library
         id <MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
-
-        // Load the fragment function into the library
         id <MTLFunction> fragmentFunction = [defaultLibrary newFunctionWithName:@"fragmentShader"];
 
         mtkView.depthStencilPixelFormat = MTLPixelFormatDepth32Float;
@@ -120,20 +117,16 @@ typedef struct AAPLObjectMesh {
         // Needed for this pipeline state to be used in indirect command buffers.
         pipelineStateDescriptor.supportIndirectCommandBuffers = TRUE;
 
-        NSError *error = nil;
         _renderPipelineState = [_device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor error:&error];
-        if (!_renderPipelineState)
-        {
-            NSLog(@"Failed to created pipeline state, error %@", error);
-        }
+
+        NSAssert(_renderPipelineState, @"Failed to create pipeline state: %@", error);
 
         id<MTLFunction> GPUCommandEncodingKernel = [defaultLibrary newFunctionWithName:@"cullMeshesAndEncodeCommands"];
         _computePipelineState = [_device newComputePipelineStateWithFunction:GPUCommandEncodingKernel
-                                                                  error:&error];
-        if (!_computePipelineState)
-        {
-            NSLog(@"Failed to created compute pipeline state, error %@", error);
-        }
+                                                                       error:&error];
+
+        NSAssert(_computePipelineState ,@"Failed to create compute pipeline state: %@", error);
+
 
         AAPLObjectMesh *tempMeshes = malloc(sizeof(AAPLObjectMesh)*AAPLNumObjects);
 
@@ -207,7 +200,7 @@ typedef struct AAPLObjectMesh {
 
         free(tempMeshes);
 
-        for(int i = 0; i < AAPLMaxBuffersInFlight; i++)
+        for(int i = 0; i < AAPLMaxFramesInFlight; i++)
         {
             _frameStateBuffer[i] = [_device newBufferWithLength:sizeof(AAPLFrameState)
                                                                   options:MTLResourceStorageModeShared];
@@ -216,7 +209,6 @@ typedef struct AAPLObjectMesh {
         }
 
         MTLIndirectCommandBufferDescriptor* icbDescriptor = [MTLIndirectCommandBufferDescriptor new];
-
         
         // Only standard (non-indexed) draw commands are allowed.
         icbDescriptor.commandTypes = MTLIndirectCommandTypeDraw;
@@ -228,16 +220,22 @@ typedef struct AAPLObjectMesh {
         icbDescriptor.maxVertexBufferBindCount = 3;
         icbDescriptor.maxFragmentBufferBindCount = 0;
 
-#ifdef TARGET_MACOS
+#if defined TARGET_MACOS || defined(__IPHONE_13_0)
         // Indicate that the render pipeline state object will be set in the render command encoder
         // (not by the indirect command buffer).
-        // Only macOS devices support pipeline inheritance with ICBs and have this property.
-        icbDescriptor.inheritPipelineState = YES;
+        // On iOS, this property only exists on iOS 13 and later.  It defaults to YES in earlier
+        // versions
+        if (@available(iOS 13.0, *)) {
+            icbDescriptor.inheritPipelineState = YES;
+        }
 #endif
 
+        // Create indirect command buffer using private storage mode; since only the GPU will
+        // write to and read from the indirect command buffer, the CPU never needs to access the
+        // memory
         _indirectCommandBuffer = [_device newIndirectCommandBufferWithDescriptor:icbDescriptor
                                                                  maxCommandCount:AAPLNumObjects
-                                                                         options:0];
+                                                                         options:MTLResourceStorageModePrivate];
 
         id<MTLArgumentEncoder> argumentEncoder =
             [GPUCommandEncodingKernel newArgumentEncoderWithBufferIndex:AAPLKernelBufferIndexCommandBufferContainer];
@@ -259,8 +257,8 @@ typedef struct AAPLObjectMesh {
                                   toothWidth:(float)toothWidth
                                   toothSlope:(float)toothSlope
 {
-    assert(numTeeth >= 3);
-    assert(toothWidth + 2 * toothSlope < 1.0);
+    NSAssert(numTeeth >= 3, @"Can only build a gear with at least 3 teeth");
+    NSAssert(toothWidth + 2 * toothSlope < 1.0, @"Configuration of gear invalid");
 
     AAPLObjectMesh mesh;
 
@@ -317,7 +315,7 @@ typedef struct AAPLObjectMesh {
         mesh.vertices[vtx].texcoord = (groove2 + 1.0) / 2.0;
         vtx++;
 
-        // Slice inside tooth
+        // Slice of circle inside tooth
         mesh.vertices[vtx].position = origin;
         mesh.vertices[vtx].texcoord = (origin + 1.0) / 2.0;
         vtx++;
@@ -330,7 +328,7 @@ typedef struct AAPLObjectMesh {
         mesh.vertices[vtx].texcoord = (groove2 + 1.0) / 2.0;
         vtx++;
 
-        // Slice inside groove
+        // Slice of circle inside groove
         mesh.vertices[vtx].position = origin;
         mesh.vertices[vtx].texcoord = (origin + 1.0) / 2.0;
         vtx++;
@@ -352,7 +350,7 @@ typedef struct AAPLObjectMesh {
 {
     _frameNumber++;
 
-    _inFlightIndex = _frameNumber % AAPLMaxBuffersInFlight;
+    _inFlightIndex = _frameNumber % AAPLMaxFramesInFlight;
 
     _movementSpeed = .15;
 
@@ -417,7 +415,7 @@ typedef struct AAPLObjectMesh {
 /// Called whenever the view needs to render
 - (void) drawInMTKView:(nonnull MTKView *)view
 {
-    // Wait to ensure only AAPLMaxBuffersInFlight are getting processed by any stage in the Metal
+    // Wait to ensure only AAPLMaxFramesInFlight are getting processed by any stage in the Metal
     // pipeline (App, Metal, Drivers, GPU, etc)
     dispatch_semaphore_wait(_inFlightSemaphore, DISPATCH_TIME_FOREVER);
 
@@ -435,38 +433,58 @@ typedef struct AAPLObjectMesh {
      {
          dispatch_semaphore_signal(block_sema);
      }];
+    
+    
+    // Encode command to reset the indirect command buffer
+    {
+        id<MTLBlitCommandEncoder> resetBlitEncoder = [commandBuffer blitCommandEncoder];
+        resetBlitEncoder.label = @"Reset ICB Blit Encoder";
+        
+        [resetBlitEncoder resetCommandsInBuffer:_indirectCommandBuffer
+                                      withRange:NSMakeRange(0, AAPLNumObjects)];
+        
+        [resetBlitEncoder endEncoding];
+    }
 
-    /// Encode blit commands to update the buffer holding our frame state
-    id<MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
+    
+    // Encode commands to determine visibility of objects using a compute kernel
+    {
+        id<MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
+        computeEncoder.label = @"Object Visibility Kernel";
+        
+        [computeEncoder setComputePipelineState:_computePipelineState];
+        
+        [computeEncoder setBuffer:_frameStateBuffer[_inFlightIndex] offset:0 atIndex:AAPLKernelBufferIndexFrameState];
+        [computeEncoder setBuffer:_objectParameters offset:0 atIndex:AAPLKernelBufferIndexObjectParams];
+        [computeEncoder setBuffer:_vertexBuffer offset:0 atIndex:AAPLKernelBufferIndexVertices];
+        [computeEncoder setBuffer:_icbArgumentBuffer offset:0 atIndex:AAPLKernelBufferIndexCommandBufferContainer];
+        
+        // Call useResource on '_indirectCommandBuffer' which indicates to Metal that the kernel will
+        // access '_indirectCommandBuffer'.  It is necessary because the app cannot directly set
+        // '_indirectCommandBuffer' in 'computeEncoder', but, rather, must pass it to the kernel via
+        // an argument buffer which indirectly contains '_indirectCommandBuffer'.
+        
+        [computeEncoder useResource:_indirectCommandBuffer usage:MTLResourceUsageWrite];
+        
+        NSUInteger threadExecutionWidth = _computePipelineState.threadExecutionWidth;
+        
+        [computeEncoder dispatchThreads:MTLSizeMake(AAPLNumObjects, 1, 1)
+                  threadsPerThreadgroup:MTLSizeMake(threadExecutionWidth, 1, 1)];
+        
+        [computeEncoder endEncoding];
+    }
 
-    [computeEncoder setComputePipelineState:_computePipelineState];
-
-    [computeEncoder setBuffer:_frameStateBuffer[_inFlightIndex] offset:0 atIndex:AAPLKernelBufferIndexFrameState];
-    [computeEncoder setBuffer:_objectParameters offset:0 atIndex:AAPLKernelBufferIndexObjectParams];
-    [computeEncoder setBuffer:_vertexBuffer offset:0 atIndex:AAPLKernelBufferIndexVertices];
-    [computeEncoder setBuffer:_icbArgumentBuffer offset:0 atIndex:AAPLKernelBufferIndexCommandBufferContainer];
-
-    // Call useResource on '_indirectCommandBuffer' which indicates to Metal that the kernel will
-    // access '_indirectCommandBuffer'.  It is necessary because the app cannot directly set
-    // '_indirectCommandBuffer' in 'computeEncoder', but, rather, must pass it to the kernel via
-    // an argument buffer which indirectly contains '_indirectCommandBuffer'.
-
-    [computeEncoder useResource:_indirectCommandBuffer usage:MTLResourceUsageWrite];
-
-    NSUInteger threadExecutionWidth = _computePipelineState.threadExecutionWidth;
-
-    [computeEncoder dispatchThreads:MTLSizeMake(AAPLNumObjects, 1, 1)
-              threadsPerThreadgroup:MTLSizeMake(threadExecutionWidth, 1, 1)];
-
-    [computeEncoder endEncoding];
-
-    id<MTLBlitCommandEncoder> blitEncoder = [commandBuffer blitCommandEncoder];
-
-    [blitEncoder optimizeIndirectCommandBuffer:_indirectCommandBuffer
-                                     withRange:NSMakeRange(0, AAPLNumObjects)];
-
-    [blitEncoder endEncoding];
-
+    // Encode command to optimize the indirect command buffer after encoding
+    {
+        id<MTLBlitCommandEncoder> optimizeBlitEncoder = [commandBuffer blitCommandEncoder];
+        optimizeBlitEncoder.label = @"Optimize ICB Blit Encoder";
+        
+        [optimizeBlitEncoder optimizeIndirectCommandBuffer:_indirectCommandBuffer
+                                                 withRange:NSMakeRange(0, AAPLNumObjects)];
+        
+        [optimizeBlitEncoder endEncoding];
+    }
+    
     MTLRenderPassDescriptor *renderPassDescriptor = view.currentRenderPassDescriptor;
 
     // If we've gotten a renderPassDescriptor we can render to the drawable, otherwise we'll skip

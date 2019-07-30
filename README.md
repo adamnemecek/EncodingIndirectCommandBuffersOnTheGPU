@@ -12,7 +12,7 @@ Without ICBs, you couldn't submit rendering commands on the GPU. Instead, the CP
 
 ![Flow chart of an algorithm being parallelized on the GPU with the CPU waiting on its results.](Documentation/CpuRoundTrip.png)
 
-The sample code project, [Encoding Indirect Command Buffers on the CPU](https://developer.apple.com/documentation/metal/advanced_command_setup/encoding_indirect_command_buffers_on_the_cpu) introduces ICBs by creating a single ICB to reuse its commands every frame. While the former sample saved expensive command-encoding time by reusing commands, this sample uses ICBs to effect a GPU-driven rendering pipeline. 
+The sample code project, [Encoding Indirect Command Buffers on the CPU](https://developer.apple.com/documentation/metal/indirect_command_buffers/encoding_indirect_command_buffers_on_the_cpu) introduces ICBs by creating a single ICB to reuse its commands every frame. While the former sample saved expensive command-encoding time by reusing commands, this sample uses ICBs to effect a GPU-driven rendering pipeline.
 
 The techniques shown by this sample include issuing draw calls from the GPU, and the process of executing a select set of draws. 
 
@@ -146,11 +146,9 @@ cullMeshesAndEncodeCommands(uint                          objectIndex   [[ threa
                             object_params[objectIndex].numVertices, 1,
                             objectIndex);
     }
-    else
-    {
-        // Generate an empty command so that the GPU doesn't draw this object.
-        cmd.reset();
-    }
+    
+    // If the object is not visible, no draw command will be set since so long as the app has reset
+    // the indirect command buffer commands with a blit encoder before encoding the draw.
 }
 ```
 
@@ -199,6 +197,13 @@ Because you pass the ICB through an argument buffer, standard argument buffer ru
 
 ## Encode and Optimize ICB Commands
 
+Reset the ICB's commands to their initial before beginning encoding:
+
+``` objective-c
+[resetBlitEncoder resetCommandsInBuffer:_indirectCommandBuffer
+                              withRange:NSMakeRange(0, AAPLNumObjects)];
+```
+
 Encode the ICB's commands by dispatching the compute kernel: 
 
 ``` objective-c
@@ -209,8 +214,8 @@ Encode the ICB's commands by dispatching the compute kernel:
 Optimize your ICB commands to remove empty commands or redundant state by calling `optimizeIndirectCommandBuffer:withRange:`:
 
 ``` objective-c
-[blitEncoder optimizeIndirectCommandBuffer:_indirectCommandBuffer
-                                 withRange:NSMakeRange(0, AAPLNumObjects)];
+[optimizeBlitEncoder optimizeIndirectCommandBuffer:_indirectCommandBuffer
+                                         withRange:NSMakeRange(0, AAPLNumObjects)];
 ```
 
 This sample optimizes ICB commands because redundant state results from the kernel setting a buffer for each draw, and encoding empty commands for each invisible object. By removing the empty commands, you can free up a significant number of blank spaces in the command buffer that Metal would otherwise spend time skipping at runtime. 
